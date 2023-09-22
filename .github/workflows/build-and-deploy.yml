@@ -16,10 +16,11 @@ jobs:
       - name: Build Project
         run: |
           # Comandos para compilar tu proyecto, por ejemplo:
-          npm install
+          npm ci
           npm run build
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
+          folder: .
           branch: gh-pages
