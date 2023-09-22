@@ -1,8 +1,10 @@
-import { EVENT_MOVEMENTS } from './consts'
+import { EVENT_MOVEMENTS, MOVEMENT_SPEED, PIECE_SHAPES } from './consts'
 import './style.css'
+import { getRandomNumberFromRange } from './utils'
 
 const canvas = document.querySelector('canvas')
 const ctx = canvas.getContext('2d')
+let interval
 
 const EMPTY_CELL_COLOR = 'black'
 const SOLID_PIECE_COLOR = 'white'
@@ -12,44 +14,11 @@ const BLOCK_SIZE = 20
 const BOARD_WIDTH = 14
 const BOARD_HEIGHT = 30
 
-const board = [
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0],
-]
+const board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0))
 
 const currentPiece = {
   position: { x: 5, y: 5 },
-  shape: [
-    [1, 0], [1, 1]
-  ]
+  shape: PIECE_SHAPES[Math.floor(Math.random() * PIECE_SHAPES.length)]
 }
 
 canvas.width = (BLOCK_SIZE * BOARD_WIDTH)
@@ -59,6 +28,7 @@ ctx.scale(BLOCK_SIZE, BLOCK_SIZE)
 drawBoard()
 drawCurrentPiece()
 listenToKeyboard()
+initAutomaticMovement()
 
 function drawBoard() {
   ctx.fillStyle = EMPTY_CELL_COLOR
@@ -90,10 +60,18 @@ function updateBoard() {
   drawCurrentPiece()
 }
 
-function hasCollision(x, y) {
-  if (y <= board.length - 1) {
-    if (x <= board[y].length - 1) {
-      return board[y][x] === 0 ? false : true
+function hasCollision(xParam, yParam) {
+  if (yParam <= board.length - 1) {
+    if (xParam<= board[yParam].length - 1) {
+      return currentPiece.shape.find((row, y) => {
+        return row.some((value, x) => {
+          if (!value) return false
+
+          if (!board[y + yParam] || board[y + yParam][x + xParam] === undefined) return true
+
+          return board[y + yParam][x + xParam] !== 0 ? true : false
+        } )
+      })
     }
   }
   
@@ -106,8 +84,7 @@ function handleCollision() {
       board[currentPiece.position.y + y][currentPiece.position.x + x] = value
     })
   })
-  currentPiece.position.y = 0
-  currentPiece.position.x = 0
+  resetCurrentPiece()
 }
 
 function handleKeydown(keyName) {
@@ -130,6 +107,8 @@ function handleKeydown(keyName) {
       } else {
         handleCollision()
       }
+      clearInterval(interval)
+      initAutomaticMovement()
       break
 
     default: break
@@ -139,4 +118,26 @@ function handleKeydown(keyName) {
 
 function listenToKeyboard() {
   document.addEventListener('keydown', e => handleKeydown(e.key))
+}
+
+function initAutomaticMovement() {
+  interval = setInterval(() => handleKeydown(EVENT_MOVEMENTS.DOWN), MOVEMENT_SPEED)
+}
+
+function resetCurrentPiece() {
+  let nextShape
+  do {
+    nextShape = PIECE_SHAPES[getRandomNumberFromRange(0, PIECE_SHAPES.length)]
+  } while (!nextShape)
+
+  let nextShapeWidth = 0
+  nextShape.forEach((row, y) => {
+    if (row.length > nextShapeWidth) {
+      nextShapeWidth = row.length
+    }
+  })
+
+  currentPiece.position.x = getRandomNumberFromRange(0, nextShapeWidth)
+  currentPiece.position.y = 0
+  currentPiece.shape = nextShape
 }
